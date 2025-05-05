@@ -1,7 +1,8 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app"
+import { initializeApp, getApps } from "firebase/app"
 import { getAuth } from "firebase/auth"
-import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
+import { getFirestore } from "firebase/firestore"
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -14,13 +15,14 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
+// Initialize Firebase only if it hasn't been initialized already
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0]
 
 // Initialize Firebase services
 export const auth = getAuth(app)
 export const db = getFirestore(app)
-export default app
 
 // Re-export Firestore functions
 export { doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, collection }
+
+export default app

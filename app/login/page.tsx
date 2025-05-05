@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { loginUser } from "@/lib/auth"
@@ -16,15 +15,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const { user } = useAuth()
 
+  // Set mounted to true after component mounts
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // If user is already logged in, redirect to dashboard
   useEffect(() => {
-    if (user) {
+    if (user && mounted) {
       router.push("/dashboard")
     }
-  }, [user, router])
+  }, [user, router, mounted])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,13 +46,18 @@ export default function LoginPage() {
     }
   }
 
+  // If not client-side yet, show loading
+  if (!mounted) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
   // If user is already logged in, don't render the login form
   if (user) {
-    return null
+    return <div className="flex items-center justify-center min-h-screen">Redirecting to dashboard...</div>
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Login to InsightTrack</CardTitle>

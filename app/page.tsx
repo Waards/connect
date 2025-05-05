@@ -2,12 +2,24 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { useTheme } from "@/components/theme-provider"
 
 export default function LandingPage() {
+  const [mounted, setMounted] = useState(false)
+
+  // Use useEffect to set mounted to true after component mounts
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Only render content on the client to avoid hydration issues
+  if (!mounted) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <LandingPageContent />
@@ -31,9 +43,14 @@ function LandingPageContent() {
     }
   }, [user, loading, router])
 
-  // If loading or user is logged in (will redirect), don't render the landing page
-  if (loading || user) {
+  // If loading, show loading indicator
+  if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
+  }
+
+  // If user is logged in (will redirect), don't render the landing page
+  if (user) {
+    return <div className="flex items-center justify-center h-screen">Redirecting to dashboard...</div>
   }
 
   return (

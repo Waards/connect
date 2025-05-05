@@ -5,11 +5,15 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth"
-import { auth } from "./firebase"
+import { auth } from "@/lib/firebase"
 
 // Login function
 export async function loginUser(email: string, password: string): Promise<User> {
   try {
+    if (typeof window === "undefined") {
+      throw new Error("Authentication can only be performed in the browser")
+    }
+
     const userCredential = await signInWithEmailAndPassword(auth, email, password)
     return userCredential.user
   } catch (error: any) {
@@ -21,6 +25,10 @@ export async function loginUser(email: string, password: string): Promise<User> 
 // Logout function
 export async function logoutUser(): Promise<void> {
   try {
+    if (typeof window === "undefined") {
+      throw new Error("Authentication can only be performed in the browser")
+    }
+
     await signOut(auth)
   } catch (error: any) {
     console.error("Logout error:", error)
@@ -31,6 +39,10 @@ export async function logoutUser(): Promise<void> {
 // Register function
 export async function registerUser(email: string, password: string, displayName: string): Promise<User> {
   try {
+    if (typeof window === "undefined") {
+      throw new Error("Authentication can only be performed in the browser")
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)
 
     // Update the user's profile with the display name

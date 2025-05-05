@@ -340,6 +340,13 @@ export default function ClientsPage() {
       pageNumbers.push(i)
     }
 
+    const isDark = theme === "dark"
+    const buttonBgColor = isDark ? "bg-gray-800" : "bg-gray-200"
+    const buttonTextColor = isDark ? "text-white" : "text-gray-800"
+    const buttonHoverColor = isDark ? "hover:bg-gray-700" : "hover:bg-gray-300"
+    const activeButtonBgColor = "bg-green-500"
+    const activeButtonTextColor = "text-white"
+
     return (
       <div className="flex items-center space-x-1">
         <Button
@@ -347,7 +354,7 @@ export default function ClientsPage() {
           size="icon"
           onClick={prevPage}
           disabled={currentPage === 1}
-          className="bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50 w-8 h-8 p-0"
+          className={`${buttonBgColor} ${buttonTextColor} ${buttonHoverColor} disabled:opacity-50 w-8 h-8 p-0`}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -360,8 +367,8 @@ export default function ClientsPage() {
             onClick={() => goToPage(number)}
             className={`w-8 h-8 p-0 ${
               currentPage === number
-                ? "bg-green-500 text-white hover:bg-green-600"
-                : "bg-gray-800 text-white hover:bg-gray-700"
+                ? `${activeButtonBgColor} ${activeButtonTextColor} hover:bg-green-600`
+                : `${buttonBgColor} ${buttonTextColor} ${buttonHoverColor}`
             }`}
           >
             {number}
@@ -373,7 +380,7 @@ export default function ClientsPage() {
           size="icon"
           onClick={nextPage}
           disabled={currentPage === totalPages}
-          className="bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50 w-8 h-8 p-0"
+          className={`${buttonBgColor} ${buttonTextColor} ${buttonHoverColor} disabled:opacity-50 w-8 h-8 p-0`}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -390,11 +397,23 @@ export default function ClientsPage() {
   // Get current page clients
   const currentClients = getCurrentClients()
 
+  // Determine colors based on theme
+  const isDark = theme === "dark"
+  const bgColor = isDark ? "bg-[#0a0b14]" : "bg-gray-50"
+  const cardBgColor = isDark ? "bg-[#0f1018]" : "bg-white"
+  const borderColor = isDark ? "border-gray-800" : "border-gray-200"
+  const textColor = isDark ? "text-white" : "text-gray-900"
+  const mutedTextColor = isDark ? "text-gray-400" : "text-gray-500"
+  const headerBgColor = isDark ? "bg-gray-800/50" : "bg-gray-100"
+  const statBgColor = isDark ? "bg-gray-800" : "bg-gray-100"
+  const hoverBgColor = isDark ? "hover:bg-gray-800/30" : "hover:bg-gray-50"
+  const rowBorderColor = isDark ? "border-gray-800" : "border-gray-200"
+
   return (
-    <div className="w-full h-full flex flex-col bg-[#0a0b14]">
+    <div className={`w-full h-full flex flex-col ${bgColor}`}>
       <div className="p-4 flex flex-col h-full">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Clients</h1>
+          <h1 className={`text-2xl md:text-3xl font-bold ${textColor}`}>Clients</h1>
           <Button onClick={() => setShowAddClientModal(true)} className="bg-green-500 hover:bg-green-600 text-white">
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Client
@@ -403,35 +422,39 @@ export default function ClientsPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
           {/* More minimalist tab style */}
-          <TabsList className="mb-4 w-full md:w-auto bg-transparent p-0 border-b border-gray-800">
+          <TabsList className="mb-4 w-full md:w-auto bg-transparent p-0 border-b border-gray-200">
             <TabsTrigger
               value="active"
-              className="px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 text-gray-400 bg-transparent rounded-none"
+              className="px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 text-gray-500 bg-transparent rounded-none"
             >
               Active Clients
             </TabsTrigger>
             <TabsTrigger
               value="archived"
-              className="px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 text-gray-400 bg-transparent rounded-none"
+              className="px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 text-gray-500 bg-transparent rounded-none"
             >
               Archived Clients
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="m-0 p-0 flex-1 flex flex-col">
-            <div className="bg-[#0f1018] rounded-md border border-gray-800 flex-1 flex flex-col">
-              <div className="p-4 border-b border-gray-800 flex flex-col md:flex-row items-start md:items-center justify-between space-y-2 md:space-y-0">
-                <h2 className="text-lg font-medium text-white">Client List</h2>
+            <div className={`${cardBgColor} rounded-md border ${borderColor} flex-1 flex flex-col`}>
+              <div
+                className={`p-4 border-b ${borderColor} flex flex-col md:flex-row items-start md:items-center justify-between space-y-2 md:space-y-0`}
+              >
+                <h2 className={`text-lg font-medium ${textColor}`}>Client List</h2>
                 {!isMobile && (
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-400">Sort by:</span>
+                    <span className={`text-sm ${mutedTextColor}`}>Sort by:</span>
                     <div className="flex flex-wrap gap-1">
                       <Button
                         variant={sortBy === "dueDate" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("dueDate")}
                         className={
-                          sortBy === "dueDate" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"
+                          sortBy === "dueDate"
+                            ? "bg-green-500 text-white"
+                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
                         }
                       >
                         Due Date
@@ -441,7 +464,9 @@ export default function ClientsPage() {
                         size="sm"
                         onClick={() => handleSortChange("status")}
                         className={
-                          sortBy === "status" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"
+                          sortBy === "status"
+                            ? "bg-green-500 text-white"
+                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
                         }
                       >
                         Status
@@ -451,7 +476,9 @@ export default function ClientsPage() {
                         size="sm"
                         onClick={() => handleSortChange("plan")}
                         className={
-                          sortBy === "plan" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"
+                          sortBy === "plan"
+                            ? "bg-green-500 text-white"
+                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
                         }
                       >
                         Plan
@@ -461,7 +488,9 @@ export default function ClientsPage() {
                         size="sm"
                         onClick={() => handleSortChange("lastName")}
                         className={
-                          sortBy === "lastName" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"
+                          sortBy === "lastName"
+                            ? "bg-green-500 text-white"
+                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
                         }
                       >
                         Name
@@ -471,13 +500,13 @@ export default function ClientsPage() {
                 )}
                 {isMobile && (
                   <div className="w-full">
-                    <p className="text-sm text-gray-400 mb-2">Sort by:</p>
+                    <p className={`text-sm ${mutedTextColor} mb-2`}>Sort by:</p>
                     <div className="grid grid-cols-2 gap-2">
                       <Button
                         variant={sortBy === "dueDate" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("dueDate")}
-                        className={`w-full ${sortBy === "dueDate" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"}`}
+                        className={`w-full ${sortBy === "dueDate" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
                       >
                         <Calendar className="mr-1 h-3 w-3" />
                         Due Date
@@ -486,7 +515,7 @@ export default function ClientsPage() {
                         variant={sortBy === "status" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("status")}
-                        className={`w-full ${sortBy === "status" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"}`}
+                        className={`w-full ${sortBy === "status" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
                       >
                         <AlertTriangle className="mr-1 h-3 w-3" />
                         Status
@@ -495,7 +524,7 @@ export default function ClientsPage() {
                         variant={sortBy === "plan" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("plan")}
-                        className={`w-full ${sortBy === "plan" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"}`}
+                        className={`w-full ${sortBy === "plan" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
                       >
                         <Wifi className="mr-1 h-3 w-3" />
                         Plan
@@ -504,7 +533,7 @@ export default function ClientsPage() {
                         variant={sortBy === "lastName" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("lastName")}
-                        className={`w-full ${sortBy === "lastName" ? "bg-green-500 text-white" : "bg-gray-800 border-gray-700 text-white"}`}
+                        className={`w-full ${sortBy === "lastName" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
                       >
                         <Clock className="mr-1 h-3 w-3" />
                         Name
@@ -519,7 +548,9 @@ export default function ClientsPage() {
                   <div className="overflow-auto">
                     {/* Desktop view - custom table */}
                     <div>
-                      <div className="grid grid-cols-12 gap-2 py-2 px-4 bg-gray-800/50 text-gray-400 text-sm sticky top-0 z-10">
+                      <div
+                        className={`grid grid-cols-12 gap-2 py-2 px-4 ${headerBgColor} ${mutedTextColor} text-sm sticky top-0 z-10`}
+                      >
                         <div className="col-span-2">Name</div>
                         <div className="col-span-2">Contact</div>
                         <div className="col-span-2">Plan</div>
@@ -538,32 +569,38 @@ export default function ClientsPage() {
                           return (
                             <div
                               key={client.id}
-                              className={`border-b border-gray-800 py-4 px-2 hover:bg-gray-800/30 transition-colors ${
-                                isOverdue ? "bg-red-950/20" : isNearDue ? "bg-yellow-950/20" : ""
+                              className={`border-b ${rowBorderColor} py-4 px-2 ${hoverBgColor} transition-colors ${
+                                isOverdue
+                                  ? isDark
+                                    ? "bg-red-950/20"
+                                    : "bg-red-50"
+                                  : isNearDue
+                                    ? (isDark ? "bg-yellow-950/20" : "bg-yellow-50")
+                                    : ""
                               }`}
                             >
                               <div className="grid grid-cols-12 gap-2 items-center">
                                 <div className="col-span-2">
-                                  <div className="font-medium text-white">
+                                  <div className={`font-medium ${textColor}`}>
                                     {client.firstName} {client.lastName}
                                   </div>
-                                  <div className="text-sm text-gray-400">{client.address}</div>
+                                  <div className={`text-sm ${mutedTextColor}`}>{client.address}</div>
                                 </div>
 
                                 <div className="col-span-2">
-                                  <div className="text-sm text-white">{client.email}</div>
-                                  <div className="text-sm text-gray-400">{client.phone}</div>
+                                  <div className={`text-sm ${textColor}`}>{client.email}</div>
+                                  <div className={`text-sm ${mutedTextColor}`}>{client.phone}</div>
                                 </div>
 
                                 <div className="col-span-2">
-                                  <div className="font-medium text-white">
+                                  <div className={`font-medium ${textColor}`}>
                                     {PLAN_DETAILS[client.plan]?.name || "Basic"} - ₱
                                     {PLAN_DETAILS[client.plan]?.price || "800"}
                                   </div>
-                                  <div className="text-sm text-gray-400">
+                                  <div className={`text-sm ${mutedTextColor}`}>
                                     ({PLAN_DETAILS[client.plan]?.speed || "15"} Mbps)
                                   </div>
-                                  <div className="text-xs text-gray-400">
+                                  <div className={`text-xs ${mutedTextColor}`}>
                                     Started: {formatDate(client.planStartDate)}
                                   </div>
                                 </div>
@@ -571,7 +608,7 @@ export default function ClientsPage() {
                                 <div className="col-span-1 text-center">{getStatusBadge(client.status)}</div>
 
                                 <div className="col-span-2">
-                                  <div className="text-white">{formatDate(client.dueDate)}</div>
+                                  <div className={textColor}>{formatDate(client.dueDate)}</div>
                                   {daysUntilDue !== null && (
                                     <div
                                       className={`text-sm ${
@@ -579,7 +616,7 @@ export default function ClientsPage() {
                                           ? "text-red-500 font-medium"
                                           : isNearDue
                                             ? "text-yellow-500"
-                                            : "text-gray-400"
+                                            : mutedTextColor
                                       }`}
                                     >
                                       {isOverdue
@@ -592,11 +629,11 @@ export default function ClientsPage() {
                                 <div className="col-span-1 text-center">{getConnectionBadge(client.isConnected)}</div>
 
                                 <div className="col-span-1">
-                                  <div className="text-white">
+                                  <div className={textColor}>
                                     {client.lastPaymentDate?.toDate ? formatDate(client.lastPaymentDate) : "No payment"}
                                   </div>
                                   {client.lastPaymentAmount && (
-                                    <div className="text-sm text-gray-400">
+                                    <div className={`text-sm ${mutedTextColor}`}>
                                       ₱{client.lastPaymentAmount.toLocaleString()}
                                     </div>
                                   )}
@@ -605,7 +642,7 @@ export default function ClientsPage() {
                                 <div className="col-span-1 text-right">
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white">
+                                      <Button variant="ghost" size="icon" className={`h-8 w-8 ${textColor}`}>
                                         <MoreHorizontal className="h-4 w-4" />
                                         <span className="sr-only">Actions</span>
                                       </Button>
@@ -635,20 +672,20 @@ export default function ClientsPage() {
                   </div>
 
                   {/* Client statistics and pagination footer */}
-                  <div className="p-4 border-t border-gray-800 bg-[#0f1018] mt-auto">
+                  <div className={`p-4 border-t ${borderColor} ${cardBgColor} mt-auto`}>
                     <div className="flex flex-wrap justify-between items-center gap-4">
                       <div className="flex flex-wrap gap-2">
-                        <div className="bg-gray-800 px-3 py-1.5 rounded-md text-sm">
-                          <span className="text-gray-400">Total:</span>{" "}
-                          <span className="text-white font-medium">{clientStats.totalClients}</span>
+                        <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                          <span className={mutedTextColor}>Total:</span>{" "}
+                          <span className={`${textColor} font-medium`}>{clientStats.totalClients}</span>
                         </div>
-                        <div className="bg-gray-800 px-3 py-1.5 rounded-md text-sm">
-                          <span className="text-gray-400">Connected:</span>{" "}
-                          <span className="text-white font-medium">{clientStats.connectedClients}</span>
+                        <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                          <span className={mutedTextColor}>Connected:</span>{" "}
+                          <span className={`${textColor} font-medium`}>{clientStats.connectedClients}</span>
                         </div>
-                        <div className="bg-gray-800 px-3 py-1.5 rounded-md text-sm">
-                          <span className="text-gray-400">Overdue:</span>{" "}
-                          <span className="text-white font-medium">{clientStats.overdueClients}</span>
+                        <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                          <span className={mutedTextColor}>Overdue:</span>{" "}
+                          <span className={`${textColor} font-medium`}>{clientStats.overdueClients}</span>
                         </div>
                       </div>
                       {renderPagination()}
@@ -656,7 +693,7 @@ export default function ClientsPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-center p-8 text-gray-400 min-h-[300px] flex items-center justify-center">
+                <div className={`text-center p-8 ${mutedTextColor} min-h-[300px] flex items-center justify-center`}>
                   No active clients found. Add your first client to get started.
                 </div>
               )}
@@ -664,9 +701,9 @@ export default function ClientsPage() {
           </TabsContent>
 
           <TabsContent value="archived" className="m-0 p-0 flex-1 flex flex-col">
-            <div className="bg-[#0f1018] rounded-md border border-gray-800 flex-1 flex flex-col">
-              <div className="p-4 border-b border-gray-800">
-                <h2 className="text-lg font-medium text-white">Archived Clients</h2>
+            <div className={`${cardBgColor} rounded-md border ${borderColor} flex-1 flex flex-col`}>
+              <div className={`p-4 border-b ${borderColor}`}>
+                <h2 className={`text-lg font-medium ${textColor}`}>Archived Clients</h2>
               </div>
 
               {archivedClients.length > 0 ? (
@@ -674,7 +711,9 @@ export default function ClientsPage() {
                   <div className="overflow-auto">
                     {/* Desktop view - custom table */}
                     <div>
-                      <div className="grid grid-cols-12 gap-2 py-2 px-4 bg-gray-800/50 text-gray-400 text-sm sticky top-0 z-10">
+                      <div
+                        className={`grid grid-cols-12 gap-2 py-2 px-4 ${headerBgColor} ${mutedTextColor} text-sm sticky top-0 z-10`}
+                      >
                         <div className="col-span-3">Name</div>
                         <div className="col-span-3">Contact</div>
                         <div className="col-span-3">Plan</div>
@@ -685,28 +724,28 @@ export default function ClientsPage() {
                         {archivedClients.map((client) => (
                           <div
                             key={client.id}
-                            className="border-b border-gray-800 py-4 px-4 hover:bg-gray-800/30 transition-colors"
+                            className={`border-b ${rowBorderColor} py-4 px-4 ${hoverBgColor} transition-colors`}
                           >
                             <div className="grid grid-cols-12 gap-2 items-center">
                               <div className="col-span-3">
-                                <div className="font-medium text-white">
+                                <div className={`font-medium ${textColor}`}>
                                   {client.firstName} {client.lastName}
                                 </div>
-                                <div className="text-sm text-gray-400">{client.address}</div>
+                                <div className={`text-sm ${mutedTextColor}`}>{client.address}</div>
                               </div>
                               <div className="col-span-3">
-                                <div className="text-sm text-white">{client.email}</div>
-                                <div className="text-sm text-gray-400">{client.phone}</div>
+                                <div className={`text-sm ${textColor}`}>{client.email}</div>
+                                <div className={`text-sm ${mutedTextColor}`}>{client.phone}</div>
                               </div>
                               <div className="col-span-3">
-                                <div className="font-medium text-white">{getPlanDisplay(client.plan)}</div>
+                                <div className={`font-medium ${textColor}`}>{getPlanDisplay(client.plan)}</div>
                               </div>
                               <div className="col-span-2">
-                                <div className="text-white">
+                                <div className={textColor}>
                                   {client.lastPaymentDate?.toDate ? formatDate(client.lastPaymentDate) : "No payment"}
                                 </div>
                                 {client.lastPaymentAmount && (
-                                  <div className="text-sm text-gray-400">
+                                  <div className={`text-sm ${mutedTextColor}`}>
                                     ₱{client.lastPaymentAmount.toLocaleString()}
                                   </div>
                                 )}
@@ -716,7 +755,7 @@ export default function ClientsPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleRestoreClient(client)}
-                                  className="bg-gray-800 border-gray-700 hover:bg-gray-700 text-white"
+                                  className={`${isDark ? "bg-gray-800 border-gray-700 hover:bg-gray-700" : "bg-gray-100 border-gray-200 hover:bg-gray-200"} ${textColor}`}
                                 >
                                   Restore
                                 </Button>
@@ -729,17 +768,17 @@ export default function ClientsPage() {
                   </div>
 
                   {/* Archived clients statistics footer */}
-                  <div className="p-4 border-t border-gray-800 bg-[#0f1018] mt-auto">
+                  <div className={`p-4 border-t ${borderColor} ${cardBgColor} mt-auto`}>
                     <div className="flex justify-between items-center">
-                      <div className="bg-gray-800 px-3 py-1.5 rounded-md text-sm">
-                        <span className="text-gray-400">Total archived:</span>{" "}
-                        <span className="text-white font-medium">{archivedClients.length}</span>
+                      <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                        <span className={mutedTextColor}>Total archived:</span>{" "}
+                        <span className={`${textColor} font-medium`}>{archivedClients.length}</span>
                       </div>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="text-center p-8 text-gray-400 min-h-[300px] flex items-center justify-center">
+                <div className={`text-center p-8 ${mutedTextColor} min-h-[300px] flex items-center justify-center`}>
                   No archived clients found.
                 </div>
               )}
