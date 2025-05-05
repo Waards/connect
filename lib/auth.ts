@@ -5,13 +5,17 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import { auth } from "@/lib/firebase-init"
 
 // Login function
 export async function loginUser(email: string, password: string): Promise<User> {
   try {
     if (typeof window === "undefined") {
       throw new Error("Authentication can only be performed in the browser")
+    }
+
+    if (!auth) {
+      throw new Error("Firebase Auth is not initialized")
     }
 
     const userCredential = await signInWithEmailAndPassword(auth, email, password)
@@ -29,6 +33,10 @@ export async function logoutUser(): Promise<void> {
       throw new Error("Authentication can only be performed in the browser")
     }
 
+    if (!auth) {
+      throw new Error("Firebase Auth is not initialized")
+    }
+
     await signOut(auth)
   } catch (error: any) {
     console.error("Logout error:", error)
@@ -41,6 +49,10 @@ export async function registerUser(email: string, password: string, displayName:
   try {
     if (typeof window === "undefined") {
       throw new Error("Authentication can only be performed in the browser")
+    }
+
+    if (!auth) {
+      throw new Error("Firebase Auth is not initialized")
     }
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)

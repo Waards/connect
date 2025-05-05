@@ -1,5 +1,111 @@
-import { doc, getDoc, setDoc, serverTimestamp, addDoc, collection, updateDoc } from "firebase/firestore"
-import { db } from "./firebase"
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore"
+import { db } from "@/lib/firebase-init"
+
+// Function to ensure Firestore is initialized
+function ensureFirestore() {
+  if (typeof window === "undefined") {
+    throw new Error("Firestore operations can only be performed in the browser")
+  }
+
+  if (!db) {
+    throw new Error("Firestore is not initialized")
+  }
+
+  return db
+}
+
+// Add a document to a collection
+export async function addDocument(collectionName: string, data: any) {
+  const firestore = ensureFirestore()
+  return await addDoc(collection(firestore, collectionName), {
+    ...data,
+    createdAt: new Date(),
+  })
+}
+
+// Get all documents from a collection
+export async function getDocuments(collectionName: string) {
+  const firestore = ensureFirestore()
+  const querySnapshot = await getDocs(collection(firestore, collectionName))
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }))
+}
+
+// Get a document by ID
+export async function getDocument(collectionName: string, documentId: string) {
+  const firestore = ensureFirestore()
+  const docRef = doc(firestore, collectionName, documentId)
+  const docSnap = await getDoc(docRef)
+
+  if (docSnap.exists()) {
+    return {
+      id: docSnap.id,
+      ...docSnap.data(),
+    }
+  } else {
+    return null
+  }
+}
+
+// Update a document
+export async function updateDocument(collectionName: string, documentId: string, data: any) {
+  const firestore = ensureFirestore()
+  const docRef = doc(firestore, collectionName, documentId)
+  return await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date(),
+  })
+}
+
+// Delete a document
+export async function deleteDocument(collectionName: string, documentId: string) {
+  const firestore = ensureFirestore()
+  const docRef = doc(firestore, collectionName, documentId)
+  return await deleteDoc(docRef)
+}
+
+// Query documents
+export async function queryDocuments(
+  collectionName: string,
+  conditions: any[],
+  sortBy?: string,
+  sortDirection?: "asc" | "desc",
+) {
+  const firestore = ensureFirestore()
+
+  let q = collection(firestore, collectionName)
+
+  if (conditions.length > 0) {
+    const filters = conditions.map((condition) => where(condition.field, condition.operator, condition.value))
+    q = query(q, ...filters)
+  }
+
+  if (sortBy) {
+    q = query(q, orderBy(sortBy, sortDirection || "asc"))
+  }
+
+  const querySnapshot = await getDocs(q)
+
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }))
+}
 
 // Update the getUserProfile function in lib/db.ts
 export async function getUserProfile(userId: string) {
