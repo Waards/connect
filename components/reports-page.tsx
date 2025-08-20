@@ -1,78 +1,57 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { collection, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { useAuth } from "@/components/auth-provider"
-import { useToast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Calendar, DollarSign, TrendingUp, Users, Download } from "lucide-react"
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
+  BarChart,
+  Bar,
   PieChart,
   Pie,
   Cell,
 } from "recharts"
+import { getDashboardStats, getPayments, getClients } from "@/lib/db"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function ReportsPage() {
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("revenue")
-
-  // Data states
-  const [clients, setClients] = useState([])
+  const [stats, setStats] = useState(null)
   const [payments, setPayments] = useState([])
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [timeRange, setTimeRange] = useState("6months")
+  const { toast } = useToast()
 
-  // Derived data states
-  const [monthlyRevenue, setMonthlyRevenue] = useState([])
-  const [clientStats, setClientStats] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0,
-    planDistribution: [],
-  })
-  const [paymentStats, setPaymentStats] = useState({
-    total: 0,
-    average: 0,
-    methodDistribution: [],
-  })
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-  // Fetch data
   const fetchData = async () => {
     try {
       setLoading(true)
+      const [statsData, paymentsData, clientsData] = await Promise.all([
+        getDashboardStats(),
+        getPayments(),
+        getClients(),
+      ])
 
-      // Fetch clients
-      const clientsSnapshot = await getDocs(collection(db, "clients"))
-      const clientsList = clientsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-      setClients(clientsList)
-
-      // Fetch payments
-      const paymentsSnapshot = await getDocs(collection(db, "payments"))
-      const paymentsList = paymentsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-      setPayments(paymentsList)
-
-      // Process data
-      processData(clientsList, paymentsList)
+      setStats(statsData)
+      setPayments(paymentsData)
+      setClients(clientsData)
     } catch (error) {
-      console.error("Error fetching report data:", error)
+      console.error("Error fetching reports data:", error)
       toast({
         title: "Error",
-        description: "Failed to load report data. Please try again.",
+        description: "Failed to load reports data",
         variant: "destructive",
       })
     } finally {
@@ -80,279 +59,271 @@ export default function ReportsPage() {
     }
   }
 
-  // Process data for reports
-  const processData = (clientsList, paymentsList) => {
-    // Process client stats
-    const activeClients = clientsList.filter((client) => client.isConnected)
-    const inactiveClients = clientsList.filter((client) => !client.isConnected)
-
-    // Plan distribution
-    const planCounts = {}
-    clientsList.forEach((client) => {
-      const plan = client.plan || "basic"
-      planCounts[plan] = (planCounts[plan] || 0) + 1
-    })
-
-    const planDistribution = Object.keys(planCounts).map((plan) => ({
-      name: plan.charAt(0).toUpperCase() + plan.slice(1),
-      value: planCounts[plan],
-    }))
-
-    setClientStats({
-      total: clientsList.length,
-      active: activeClients.length,
-      inactive: inactiveClients.length,
-      planDistribution,
-    })
-
-    // Process payment stats
-    const totalRevenue = paymentsList.reduce((sum, payment) => sum + (payment.amount || 0), 0)
-    const averagePayment = paymentsList.length > 0 ? totalRevenue / paymentsList.length : 0
-
-    // Payment method distribution
-    const methodCounts = {}
-    paymentsList.forEach((payment) => {
-      const method = payment.paymentMethod || "cash"
-      methodCounts[method] = (methodCounts[method] || 0) + 1
-    })
-
-    const methodDistribution = Object.keys(methodCounts).map((method) => ({
-      name: method.charAt(0).toUpperCase() + method.slice(1),
-      value: methodCounts[method],
-    }))
-
-    setPaymentStats({
-      total: totalRevenue,
-      average: averagePayment,
-      methodDistribution,
-    })
-
-    // Process monthly revenue
+  // Process revenue data for charts
+  const processRevenueData = () => {
     const monthlyData = {}
+    const now = new Date()
+    const monthsToShow = timeRange === "12months" ? 12 : 6
 
-    paymentsList.forEach((payment) => {
-      if (payment.created_at && payment.created_at.toDate) {
-        const date = payment.created_at.toDate()
-        const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`
+    // Initialize months
+    for (let i = monthsToShow - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      monthlyData[key] = {
+        month: date.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+        revenue: 0,
+        payments: 0,
+      }
+    }
 
-        if (!monthlyData[monthYear]) {
-          monthlyData[monthYear] = {
-            month: monthYear,
-            revenue: 0,
-            count: 0,
-          }
-        }
+    // Aggregate payment data
+    payments.forEach((payment) => {
+      const paymentDate = new Date(payment.created_at)
+      const key = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, "0")}`
 
-        monthlyData[monthYear].revenue += payment.amount || 0
-        monthlyData[monthYear].count += 1
+      if (monthlyData[key]) {
+        monthlyData[key].revenue += payment.amount || 0
+        monthlyData[key].payments += 1
       }
     })
 
-    // Convert to array and sort by date
-    const monthlyRevenueData = Object.values(monthlyData)
-    monthlyRevenueData.sort((a, b) => {
-      const [aMonth, aYear] = a.month.split("/")
-      const [bMonth, bYear] = b.month.split("/")
-
-      if (aYear !== bYear) return aYear - bYear
-      return aMonth - bMonth
-    })
-
-    setMonthlyRevenue(monthlyRevenueData)
+    return Object.values(monthlyData)
   }
 
-  useEffect(() => {
-    if (user) {
-      fetchData()
-    }
-  }, [user])
+  // Process client status data for pie chart
+  const processClientStatusData = () => {
+    const statusCounts = clients.reduce((acc, client) => {
+      const status = client.status || "pending"
+      acc[status] = (acc[status] || 0) + 1
+      return acc
+    }, {})
 
-  // Colors for charts
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
+    return Object.entries(statusCounts).map(([status, count]) => ({
+      name: status.charAt(0).toUpperCase() + status.slice(1),
+      value: count,
+      color: status === "paid" ? "#10B981" : status === "overdue" ? "#EF4444" : "#F59E0B",
+    }))
+  }
+
+  // Process plan distribution data
+  const processPlanData = () => {
+    const planCounts = clients.reduce((acc, client) => {
+      const plan = client.plan || "basic"
+      acc[plan] = (acc[plan] || 0) + 1
+      return acc
+    }, {})
+
+    const planNames = {
+      basic: "Basic (15 Mbps)",
+      standard: "Standard (25 Mbps)",
+      premium: "Premium (50 Mbps)",
+      enterprise: "Enterprise (100 Mbps)",
+    }
+
+    return Object.entries(planCounts).map(([plan, count]) => ({
+      plan: planNames[plan] || plan,
+      clients: count,
+    }))
+  }
+
+  const exportReport = () => {
+    const revenueData = processRevenueData()
+    const csvContent = [
+      ["Month/Year", "Revenue (₱)", "Number of Payments"],
+      ...revenueData.map((item) => [item.month, item.revenue, item.payments]),
+    ]
+      .map((row) => row.join(","))
+      .join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `revenue-report-${new Date().toISOString().split("T")[0]}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    toast({
+      title: "Success",
+      description: "Report exported successfully",
+    })
+  }
 
   if (loading) {
-    return <div className="p-8">Loading report data...</div>
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading reports...</div>
+      </div>
+    )
   }
 
+  const revenueData = processRevenueData()
+  const clientStatusData = processClientStatusData()
+  const planData = processPlanData()
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-8 flex-1 overflow-y-auto overflow-x-hidden">
-        <h1 className="text-3xl font-bold mb-6">Reports</h1>
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Reports & Analytics</h1>
+          <p className="text-gray-600">Track your business performance and insights</p>
+        </div>
+        <div className="flex gap-2">
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select time range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="6months">Last 6 Months</SelectItem>
+              <SelectItem value="12months">Last 12 Months</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={exportReport} className="bg-green-500 hover:bg-green-600">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </div>
+      </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="revenue">Revenue</TabsTrigger>
-            <TabsTrigger value="clients">Clients</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
-          </TabsList>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₱{stats?.totalRevenue?.toLocaleString() || 0}</div>
+            <p className="text-xs text-muted-foreground">All time revenue</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₱{stats?.monthlyRevenue?.toLocaleString() || 0}</div>
+            <p className="text-xs text-muted-foreground">This month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalClients || 0}</div>
+            <p className="text-xs text-muted-foreground">Active clients</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Overdue Clients</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats?.overdueClients || 0}</div>
+            <p className="text-xs text-muted-foreground">Need attention</p>
+          </CardContent>
+        </Card>
+      </div>
 
-          <TabsContent value="revenue" className="space-y-6">
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Monthly Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyRevenue} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [`₱${value.toLocaleString()}`, "Revenue"]} />
-                      <Legend />
-                      <Bar dataKey="revenue" name="Revenue (₱)" fill="#8884d8" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+      {/* Revenue Trend Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Revenue Trend</CardTitle>
+          <CardDescription>Monthly revenue and payment count over time</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={revenueData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" label={{ value: "Month/Year", position: "insideBottom", offset: -10 }} />
+              <YAxis yAxisId="revenue" label={{ value: "Revenue (₱)", angle: -90, position: "insideLeft" }} />
+              <YAxis
+                yAxisId="payments"
+                orientation="right"
+                label={{ value: "Number of Payments", angle: 90, position: "insideRight" }}
+              />
+              <Tooltip
+                formatter={(value, name) => [
+                  name === "revenue" ? `₱${value.toLocaleString()}` : value,
+                  name === "revenue" ? "Revenue" : "Payments",
+                ]}
+              />
+              <Legend />
+              <Line
+                yAxisId="revenue"
+                type="monotone"
+                dataKey="revenue"
+                stroke="#10B981"
+                strokeWidth={2}
+                name="Revenue (₱)"
+              />
+              <Line
+                yAxisId="payments"
+                type="monotone"
+                dataKey="payments"
+                stroke="#3B82F6"
+                strokeWidth={2}
+                name="Number of Payments"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Revenue</p>
-                      <p className="text-2xl font-bold">₱{paymentStats.total.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Average Payment</p>
-                      <p className="text-2xl font-bold">₱{paymentStats.average.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Payments</p>
-                      <p className="text-2xl font-bold">{payments.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Client Status Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Client Status Distribution</CardTitle>
+            <CardDescription>Breakdown of client payment status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={clientStatusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {clientStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Methods</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-60">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={paymentStats.methodDistribution}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {paymentStats.methodDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => [value, "Count"]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="clients" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Client Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Clients</p>
-                      <p className="text-2xl font-bold">{clientStats.total}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Active Connections</p>
-                      <p className="text-2xl font-bold">{clientStats.active}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Inactive Connections</p>
-                      <p className="text-2xl font-bold">{clientStats.inactive}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Plan Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-60">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={clientStats.planDistribution}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {clientStats.planDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => [value, "Clients"]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payments" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Statistics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Payments</p>
-                    <p className="text-2xl font-bold">{payments.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Revenue</p>
-                    <p className="text-2xl font-bold">₱{paymentStats.total.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Average Payment</p>
-                    <p className="text-2xl font-bold">₱{paymentStats.average.toFixed(2)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-8 h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyRevenue} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [value, "Count"]} />
-                      <Legend />
-                      <Bar dataKey="count" name="Number of Payments" fill="#82ca9d" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* Plan Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Plan Distribution</CardTitle>
+            <CardDescription>Number of clients per internet plan</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={planData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="plan" label={{ value: "Internet Plans", position: "insideBottom", offset: -10 }} />
+                <YAxis label={{ value: "Number of Clients", angle: -90, position: "insideLeft" }} />
+                <Tooltip />
+                <Bar dataKey="clients" fill="#10B981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

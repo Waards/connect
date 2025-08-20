@@ -3,32 +3,21 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-import { signInWithEmailAndPassword } from "firebase/auth"
+import { Mail, ArrowLeft, CheckCircle } from "lucide-react"
+import { sendPasswordResetEmail } from "firebase/auth"
 import { auth } from "@/lib/firebase"
-import { useAuth } from "@/components/auth-provider"
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const router = useRouter()
-  const { user } = useAuth()
-
-  // Redirect if already logged in
-  if (user) {
-    router.push("/dashboard")
-    return null
-  }
+  const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,37 +25,75 @@ export default function LoginPage() {
     setError("")
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
-      router.push("/dashboard")
+      await sendPasswordResetEmail(auth, email)
+      setSuccess(true)
     } catch (error: any) {
-      console.error("Login error:", error)
+      console.error("Password reset error:", error)
 
       // Handle specific Firebase auth errors
       switch (error.code) {
         case "auth/user-not-found":
           setError("No account found with this email address.")
           break
-        case "auth/wrong-password":
-          setError("Incorrect password. Please try again.")
-          break
         case "auth/invalid-email":
           setError("Please enter a valid email address.")
           break
-        case "auth/user-disabled":
-          setError("This account has been disabled. Please contact support.")
-          break
         case "auth/too-many-requests":
-          setError("Too many failed login attempts. Please try again later.")
+          setError("Too many requests. Please try again later.")
           break
         case "auth/network-request-failed":
           setError("Network error. Please check your connection and try again.")
           break
         default:
-          setError("Login failed. Please check your credentials and try again.")
+          setError("Failed to send reset email. Please try again.")
       }
     } finally {
       setLoading(false)
     }
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl font-bold text-center">Check your email</CardTitle>
+            <CardDescription className="text-center">We've sent a password reset link to {email}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
+              <p>Click the link in the email to reset your password.</p>
+              <p className="mt-2">If you don't see the email, check your spam folder.</p>
+            </div>
+
+            <div className="flex flex-col space-y-2">
+              <Button
+                onClick={() => {
+                  setSuccess(false)
+                  setEmail("")
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                Send another email
+              </Button>
+
+              <Link href="/login">
+                <Button variant="ghost" className="w-full">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to login
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -78,8 +105,10 @@ export default function LoginPage() {
               <span className="text-white font-bold text-xl">IT</span>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
-          <CardDescription className="text-center">Sign in to your InsightTrack account</CardDescription>
+          <CardTitle className="text-2xl font-bold text-center">Reset your password</CardTitle>
+          <CardDescription className="text-center">
+            Enter your email address and we'll send you a link to reset your password
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,42 +135,16 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
-                  required
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                  disabled={loading}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <Link href="/forgot-password" className="text-green-600 hover:text-green-500 font-medium">
-                  Forgot password?
-                </Link>
-              </div>
-            </div>
-
             <Button type="submit" className="w-full bg-green-500 hover:bg-green-600" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Sending..." : "Send reset link"}
             </Button>
+
+            <Link href="/login">
+              <Button variant="ghost" className="w-full">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to login
+              </Button>
+            </Link>
           </form>
         </CardContent>
       </Card>

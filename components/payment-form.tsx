@@ -1,63 +1,73 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/components/ui/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import { createPayment } from "@/lib/db"
+import { useToast } from "@/components/ui/use-toast"
 import { PLAN_DETAILS } from "./client-form"
-import { useMediaQuery } from "@/hooks/use-media-query"
 
-interface PaymentFormProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: () => void
-  client: any
-}
-
-export default function PaymentForm({ isOpen, onClose, onSubmit, client }: PaymentFormProps) {
+export default function PaymentForm({ isOpen, onClose, onSubmit, client }) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const isMobile = useMediaQuery("(max-width: 640px)")
-
-  // Get plan price from client's plan
-  const getPlanPrice = () => {
-    const plan = client.plan || "basic"
-    return PLAN_DETAILS[plan]?.price || 800
-  }
-
   const [formData, setFormData] = useState({
-    amount: getPlanPrice(), // Default amount based on plan
+    amount: 0,
     paymentMethod: "cash",
+    paymentDate: new Date(),
+    newDueDate: new Date(),
     notes: "",
-    extendMonths: 1, // Default to extend by 1 month
   })
 
+  // Initialize form data when client changes
   useEffect(() => {
-    // Update amount when client changes
-    setFormData((prev) => ({
-      ...prev,
-      amount: getPlanPrice(),
-    }))
-  }, [client])
+    if (client) {
+      const planDetails = PLAN_DETAILS[client.plan] || PLAN_DETAILS.basic
+      const today = new Date()
+      const nextMonth = new Date(today)
+      nextMonth.setMonth(today.getMonth() + 1)
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+      setFormData({
+        amount: planDetails.price, // Fixed amount based on client's plan
+        paymentMethod: "cash",
+        paymentDate: today,
+        newDueDate: nextMonth,
+        notes: "",
+      })
+    }
+  }, [client, isOpen])
+
+  const handleInputChange = (field, value) => {
+    // Amount is read-only, based on client's plan
+    if (field === "amount") return
+
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSelectChange = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  const handleDateChange = (field, date) => {
+    if (field === "newDueDate") {
+      // Ensure new due date is not in the past
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      if (date < today) {
+        toast({
+          title: "Invalid Date",
+          description: "New due date cannot be in the past.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, [field]: date }))
   }
 
   const handleSubmit = async (e) => {
@@ -65,46 +75,28 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, client }: Payme
     setLoading(true)
 
     try {
-      // Calculate new due date based on current due date and extension months
-      let newDueDate = new Date()
-
-      if (client.dueDate) {
-        // Start from current due date if it exists and is in the future
-        const currentDueDate = client.dueDate.toDate ? client.dueDate.toDate() : new Date(client.dueDate)
-        const today = new Date()
-
-        if (currentDueDate > today) {
-          newDueDate = currentDueDate
-        }
-      }
-
-      // Add months based on extension
-      newDueDate.setMonth(newDueDate.getMonth() + Number.parseInt(formData.extendMonths))
-
-      // Create payment record
       const paymentData = {
         clientId: client.id,
-        amount: Number(formData.amount),
+        amount: formData.amount,
         paymentMethod: formData.paymentMethod,
+        paymentDate: formData.paymentDate,
+        newDueDate: formData.newDueDate,
         notes: formData.notes,
-        extendMonths: Number.parseInt(formData.extendMonths),
-        newDueDate: newDueDate,
+        plan: client.plan,
       }
 
       await createPayment(paymentData)
 
-      // Show success notification
       toast({
-        title: "Payment Recorded",
-        description: `Payment of ₱${Number(formData.amount).toLocaleString()} for ${client.firstName} ${client.lastName} has been recorded.`,
-        variant: "default",
+        title: "Success",
+        description: "Payment recorded successfully.",
       })
 
       onSubmit()
     } catch (error) {
       console.error("Error recording payment:", error)
       toast({
-        title: "Payment Failed",
+        title: "Error",
         description: "Failed to record payment. Please try again.",
         variant: "destructive",
       })
@@ -113,100 +105,143 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, client }: Payme
     }
   }
 
-  // Get plan details display
-  const getPlanDisplay = () => {
-    const plan = client.plan || "basic"
-    const details = PLAN_DETAILS[plan] || { name: "Unknown", price: 0, speed: 0 }
-    return `${details.name} - ₱${details.price} (${details.speed} Mbps)`
+  // Disable past dates for new due date calendar
+  const isDateDisabled = (date) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return date < today
   }
+
+  if (!client) return null
+
+  const planDetails = PLAN_DETAILS[client.plan] || PLAN_DETAILS.basic
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`${isMobile ? "max-w-[95vw] p-4" : "sm:max-w-[500px]"}`}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
-          <DialogDescription>
-            Enter payment details for {client.firstName} {client.lastName}.
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Client</Label>
-            <div className="p-2 border rounded-md bg-muted">
-              {client.firstName} {client.lastName}
-            </div>
-          </div>
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h4 className="font-medium">Client Information</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {client.firstName} {client.lastName}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Plan: {planDetails.name} - ₱{planDetails.price} ({planDetails.speed} Mbps)
+          </p>
+        </div>
 
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Current Plan</Label>
-            <div className="p-2 border rounded-md bg-muted">{getPlanDisplay()}</div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount (₱)</Label>
+            <Label htmlFor="amount">Amount *</Label>
             <Input
               id="amount"
-              name="amount"
               type="number"
-              min="1"
-              step="any"
               value={formData.amount}
-              onChange={handleChange}
-              required
+              readOnly
+              className="bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+              disabled
             />
+            <p className="text-xs text-gray-500">Amount is fixed based on client's plan</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="extendMonths">Extend Subscription By</Label>
-            <Select
-              value={formData.extendMonths.toString()}
-              onValueChange={(value) => handleSelectChange("extendMonths", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select months" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 Month</SelectItem>
-                <SelectItem value="2">2 Months</SelectItem>
-                <SelectItem value="3">3 Months</SelectItem>
-                <SelectItem value="6">6 Months</SelectItem>
-                <SelectItem value="12">12 Months</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Payment Method</Label>
+            <Label htmlFor="paymentMethod">Payment Method *</Label>
             <Select
               value={formData.paymentMethod}
-              onValueChange={(value) => handleSelectChange("paymentMethod", value)}
+              onValueChange={(value) => handleInputChange("paymentMethod", value)}
+              disabled={loading}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select payment method" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="gcash">GCash</SelectItem>
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="gcash">GCash</SelectItem>
+                <SelectItem value="paymaya">PayMaya</SelectItem>
+                <SelectItem value="check">Check</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (Optional)</Label>
-            <Input id="notes" name="notes" value={formData.notes} onChange={handleChange} />
+            <Label>Payment Date *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !formData.paymentDate && "text-muted-foreground",
+                  )}
+                  disabled={loading}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.paymentDate ? format(formData.paymentDate, "PPP") : "Pick a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={formData.paymentDate}
+                  onSelect={(date) => handleDateChange("paymentDate", date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <DialogFooter className={isMobile ? "flex-col space-y-2" : ""}>
-            <Button type="button" variant="outline" onClick={onClose} className={isMobile ? "w-full" : ""}>
+          <div className="space-y-2">
+            <Label>New Due Date *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !formData.newDueDate && "text-muted-foreground",
+                  )}
+                  disabled={loading}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.newDueDate ? format(formData.newDueDate, "PPP") : "Pick a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={formData.newDueDate}
+                  onSelect={(date) => handleDateChange("newDueDate", date)}
+                  disabled={isDateDisabled}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-gray-500">New due date cannot be in the past</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Input
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => handleInputChange("notes", e.target.value)}
+              placeholder="Additional notes..."
+              disabled={loading}
+            />
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className={isMobile ? "w-full" : ""}>
-              {loading ? "Processing..." : "Record Payment"}
+            <Button type="submit" className="bg-green-500 hover:bg-green-600" disabled={loading}>
+              {loading ? "Recording..." : "Record Payment"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

@@ -27,12 +27,75 @@ import { PLAN_DETAILS } from "./client-form"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useTheme } from "@/components/theme-provider"
 
+// Simple confirmation dialog component
+const ConfirmationDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  confirmButtonClass = "",
+}) => {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{title}</h3>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{message}</p>
+        <div className="mt-4 flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onClose()
+            }}
+          >
+            {cancelText}
+          </Button>
+          <Button
+            onClick={() => {
+              onConfirm()
+              onClose()
+            }}
+            className={confirmButtonClass}
+          >
+            {confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface Client {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  address: string
+  plan: string
+  speed: string
+  price: number
+  status: "active" | "inactive" | "suspended" | "overdue" | "pending" | "paid"
+  installationDate: string
+  dueDate: string
+  createdAt: string
+  isConnected: boolean
+  lastPaymentDate: any
+  lastPaymentAmount: number
+  archived: boolean
+}
+
 export default function ClientsPage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const { theme } = useTheme()
-  const [clients, setClients] = useState([])
-  const [archivedClients, setArchivedClients] = useState([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [archivedClients, setArchivedClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("active")
   const [sortBy, setSortBy] = useState("dueDate") // Default sort by due date
@@ -49,7 +112,11 @@ export default function ClientsPage() {
   const [showAddClientModal, setShowAddClientModal] = useState(false)
   const [showEditClientModal, setShowEditClientModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedClient, setSelectedClient] = useState(null)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+
+  // Archive confirmation dialog state
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [clientToArchive, setClientToArchive] = useState<Client | null>(null)
 
   // Fetch clients data
   const fetchClients = async () => {
@@ -156,10 +223,18 @@ export default function ClientsPage() {
     }
   }, [user])
 
-  // Handle archiving a client
-  const handleArchiveClient = async (client) => {
+  // Handle archiving a client - show confirmation dialog
+  const handleArchiveClient = (client) => {
+    setClientToArchive(client)
+    setShowArchiveConfirm(true)
+  }
+
+  // Confirm archive action
+  const confirmArchiveClient = async () => {
+    if (!clientToArchive) return
+
     try {
-      const clientRef = doc(db, "clients", client.id)
+      const clientRef = doc(db, "clients", clientToArchive.id)
       await updateDoc(clientRef, {
         archived: true,
         updated_at: new Date(),
@@ -168,7 +243,7 @@ export default function ClientsPage() {
       // Show a notification using the toast system
       toast({
         title: "Client Archived",
-        description: `${client.firstName} ${client.lastName} has been moved to the archive.`,
+        description: `${clientToArchive.firstName} ${clientToArchive.lastName} has been moved to the archive.`,
         variant: "default",
       })
 
@@ -259,10 +334,10 @@ export default function ClientsPage() {
     return diffDays
   }
 
-  // Get plan details display
+  // Get plan details display - removed plan name, showing only price and speed
   const getPlanDisplay = (plan) => {
     const details = PLAN_DETAILS[plan] || { name: "Unknown", price: 0, speed: 0 }
-    return `${details.name} - ₱${details.price} (${details.speed} Mbps)`
+    return `₱${details.price} (${details.speed} Mbps)`
   }
 
   // Get status badge
@@ -340,13 +415,6 @@ export default function ClientsPage() {
       pageNumbers.push(i)
     }
 
-    const isDark = theme === "dark"
-    const buttonBgColor = isDark ? "bg-gray-800" : "bg-gray-200"
-    const buttonTextColor = isDark ? "text-white" : "text-gray-800"
-    const buttonHoverColor = isDark ? "hover:bg-gray-700" : "hover:bg-gray-300"
-    const activeButtonBgColor = "bg-green-500"
-    const activeButtonTextColor = "text-white"
-
     return (
       <div className="flex items-center space-x-1">
         <Button
@@ -354,7 +422,7 @@ export default function ClientsPage() {
           size="icon"
           onClick={prevPage}
           disabled={currentPage === 1}
-          className={`${buttonBgColor} ${buttonTextColor} ${buttonHoverColor} disabled:opacity-50 w-8 h-8 p-0`}
+          className="bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50 w-8 h-8 p-0"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -367,8 +435,8 @@ export default function ClientsPage() {
             onClick={() => goToPage(number)}
             className={`w-8 h-8 p-0 ${
               currentPage === number
-                ? `${activeButtonBgColor} ${activeButtonTextColor} hover:bg-green-600`
-                : `${buttonBgColor} ${buttonTextColor} ${buttonHoverColor}`
+                ? "bg-green-500 text-white hover:bg-green-600"
+                : "bg-gray-800 text-white hover:bg-gray-700"
             }`}
           >
             {number}
@@ -380,7 +448,7 @@ export default function ClientsPage() {
           size="icon"
           onClick={nextPage}
           disabled={currentPage === totalPages}
-          className={`${buttonBgColor} ${buttonTextColor} ${buttonHoverColor} disabled:opacity-50 w-8 h-8 p-0`}
+          className="bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50 w-8 h-8 p-0"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -397,17 +465,14 @@ export default function ClientsPage() {
   // Get current page clients
   const currentClients = getCurrentClients()
 
-  // Determine colors based on theme
-  const isDark = theme === "dark"
-  const bgColor = isDark ? "bg-[#0a0b14]" : "bg-gray-50"
-  const cardBgColor = isDark ? "bg-[#0f1018]" : "bg-white"
-  const borderColor = isDark ? "border-gray-800" : "border-gray-200"
-  const textColor = isDark ? "text-white" : "text-gray-900"
-  const mutedTextColor = isDark ? "text-gray-400" : "text-gray-500"
-  const headerBgColor = isDark ? "bg-gray-800/50" : "bg-gray-100"
-  const statBgColor = isDark ? "bg-gray-800" : "bg-gray-100"
-  const hoverBgColor = isDark ? "hover:bg-gray-800/30" : "hover:bg-gray-50"
-  const rowBorderColor = isDark ? "border-gray-800" : "border-gray-200"
+  const bgColor = theme === "dark" ? "bg-[#0a0b14]" : "bg-white"
+  const cardBgColor = theme === "dark" ? "bg-[#0f1018]" : "bg-gray-50"
+  const textColor = theme === "dark" ? "text-white" : "text-gray-900"
+  const mutedTextColor = theme === "dark" ? "text-gray-400" : "text-gray-500"
+  const borderColor = theme === "dark" ? "border-gray-800" : "border-gray-200"
+  const buttonBgColor = theme === "dark" ? "bg-gray-800" : "bg-gray-100"
+  const buttonHoverBgColor = theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200"
+  const buttonBorderColor = theme === "dark" ? "border-gray-700" : "border-gray-200"
 
   return (
     <div className={`w-full h-full flex flex-col ${bgColor}`}>
@@ -422,16 +487,16 @@ export default function ClientsPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
           {/* More minimalist tab style */}
-          <TabsList className="mb-4 w-full md:w-auto bg-transparent p-0 border-b border-gray-200">
+          <TabsList className={`mb-4 w-full md:w-auto bg-transparent p-0 border-b ${borderColor}`}>
             <TabsTrigger
               value="active"
-              className="px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 text-gray-500 bg-transparent rounded-none"
+              className={`px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 ${mutedTextColor} bg-transparent rounded-none`}
             >
               Active Clients
             </TabsTrigger>
             <TabsTrigger
               value="archived"
-              className="px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 text-gray-500 bg-transparent rounded-none"
+              className={`px-4 py-2 data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 ${mutedTextColor} bg-transparent rounded-none`}
             >
               Archived Clients
             </TabsTrigger>
@@ -445,7 +510,7 @@ export default function ClientsPage() {
                 <h2 className={`text-lg font-medium ${textColor}`}>Client List</h2>
                 {!isMobile && (
                   <div className="flex items-center space-x-2">
-                    <span className={`text-sm ${mutedTextColor}`}>Sort by:</span>
+                    <span className="text-sm text-gray-400">Sort by:</span>
                     <div className="flex flex-wrap gap-1">
                       <Button
                         variant={sortBy === "dueDate" ? "default" : "outline"}
@@ -454,7 +519,7 @@ export default function ClientsPage() {
                         className={
                           sortBy === "dueDate"
                             ? "bg-green-500 text-white"
-                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
+                            : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`
                         }
                       >
                         Due Date
@@ -466,7 +531,7 @@ export default function ClientsPage() {
                         className={
                           sortBy === "status"
                             ? "bg-green-500 text-white"
-                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
+                            : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`
                         }
                       >
                         Status
@@ -478,7 +543,7 @@ export default function ClientsPage() {
                         className={
                           sortBy === "plan"
                             ? "bg-green-500 text-white"
-                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
+                            : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`
                         }
                       >
                         Plan
@@ -490,7 +555,7 @@ export default function ClientsPage() {
                         className={
                           sortBy === "lastName"
                             ? "bg-green-500 text-white"
-                            : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`
+                            : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`
                         }
                       >
                         Name
@@ -500,13 +565,13 @@ export default function ClientsPage() {
                 )}
                 {isMobile && (
                   <div className="w-full">
-                    <p className={`text-sm ${mutedTextColor} mb-2`}>Sort by:</p>
+                    <p className="text-sm text-gray-400 mb-2">Sort by:</p>
                     <div className="grid grid-cols-2 gap-2">
                       <Button
                         variant={sortBy === "dueDate" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("dueDate")}
-                        className={`w-full ${sortBy === "dueDate" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
+                        className={`w-full ${sortBy === "dueDate" ? "bg-green-500 text-white" : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`}`}
                       >
                         <Calendar className="mr-1 h-3 w-3" />
                         Due Date
@@ -515,7 +580,7 @@ export default function ClientsPage() {
                         variant={sortBy === "status" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("status")}
-                        className={`w-full ${sortBy === "status" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
+                        className={`w-full ${sortBy === "status" ? "bg-green-500 text-white" : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`}`}
                       >
                         <AlertTriangle className="mr-1 h-3 w-3" />
                         Status
@@ -524,7 +589,7 @@ export default function ClientsPage() {
                         variant={sortBy === "plan" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("plan")}
-                        className={`w-full ${sortBy === "plan" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
+                        className={`w-full ${sortBy === "plan" ? "bg-green-500 text-white" : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`}`}
                       >
                         <Wifi className="mr-1 h-3 w-3" />
                         Plan
@@ -533,7 +598,7 @@ export default function ClientsPage() {
                         variant={sortBy === "lastName" ? "default" : "outline"}
                         size="sm"
                         onClick={() => handleSortChange("lastName")}
-                        className={`w-full ${sortBy === "lastName" ? "bg-green-500 text-white" : `${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"} ${textColor}`}`}
+                        className={`w-full ${sortBy === "lastName" ? "bg-green-500 text-white" : `${buttonBgColor} ${buttonBorderColor} ${textColor} ${buttonHoverBgColor}`}`}
                       >
                         <Clock className="mr-1 h-3 w-3" />
                         Name
@@ -549,7 +614,7 @@ export default function ClientsPage() {
                     {/* Desktop view - custom table */}
                     <div>
                       <div
-                        className={`grid grid-cols-12 gap-2 py-2 px-4 ${headerBgColor} ${mutedTextColor} text-sm sticky top-0 z-10`}
+                        className={`grid grid-cols-12 gap-2 py-2 px-4 ${buttonBgColor}/50 ${mutedTextColor} text-sm sticky top-0 z-10`}
                       >
                         <div className="col-span-2">Name</div>
                         <div className="col-span-2">Contact</div>
@@ -569,14 +634,8 @@ export default function ClientsPage() {
                           return (
                             <div
                               key={client.id}
-                              className={`border-b ${rowBorderColor} py-4 px-2 ${hoverBgColor} transition-colors ${
-                                isOverdue
-                                  ? isDark
-                                    ? "bg-red-950/20"
-                                    : "bg-red-50"
-                                  : isNearDue
-                                    ? (isDark ? "bg-yellow-950/20" : "bg-yellow-50")
-                                    : ""
+                              className={`border-b ${borderColor} py-4 px-2 hover:bg-gray-800/30 transition-colors ${
+                                isOverdue ? "bg-red-950/20" : isNearDue ? "bg-yellow-950/20" : ""
                               }`}
                             >
                               <div className="grid grid-cols-12 gap-2 items-center">
@@ -584,23 +643,17 @@ export default function ClientsPage() {
                                   <div className={`font-medium ${textColor}`}>
                                     {client.firstName} {client.lastName}
                                   </div>
-                                  <div className={`text-sm ${mutedTextColor}`}>{client.address}</div>
+                                  <div className="text-sm text-gray-400">{client.address}</div>
                                 </div>
 
                                 <div className="col-span-2">
                                   <div className={`text-sm ${textColor}`}>{client.email}</div>
-                                  <div className={`text-sm ${mutedTextColor}`}>{client.phone}</div>
+                                  <div className="text-sm text-gray-400">{client.phone}</div>
                                 </div>
 
                                 <div className="col-span-2">
-                                  <div className={`font-medium ${textColor}`}>
-                                    {PLAN_DETAILS[client.plan]?.name || "Basic"} - ₱
-                                    {PLAN_DETAILS[client.plan]?.price || "800"}
-                                  </div>
-                                  <div className={`text-sm ${mutedTextColor}`}>
-                                    ({PLAN_DETAILS[client.plan]?.speed || "15"} Mbps)
-                                  </div>
-                                  <div className={`text-xs ${mutedTextColor}`}>
+                                  <div className={`font-medium ${textColor}`}>{getPlanDisplay(client.plan)}</div>
+                                  <div className="text-sm text-gray-400">
                                     Started: {formatDate(client.planStartDate)}
                                   </div>
                                 </div>
@@ -608,7 +661,7 @@ export default function ClientsPage() {
                                 <div className="col-span-1 text-center">{getStatusBadge(client.status)}</div>
 
                                 <div className="col-span-2">
-                                  <div className={textColor}>{formatDate(client.dueDate)}</div>
+                                  <div className={`${textColor}`}>{formatDate(client.dueDate)}</div>
                                   {daysUntilDue !== null && (
                                     <div
                                       className={`text-sm ${
@@ -616,7 +669,7 @@ export default function ClientsPage() {
                                           ? "text-red-500 font-medium"
                                           : isNearDue
                                             ? "text-yellow-500"
-                                            : mutedTextColor
+                                            : "text-gray-400"
                                       }`}
                                     >
                                       {isOverdue
@@ -629,11 +682,11 @@ export default function ClientsPage() {
                                 <div className="col-span-1 text-center">{getConnectionBadge(client.isConnected)}</div>
 
                                 <div className="col-span-1">
-                                  <div className={textColor}>
+                                  <div className={`${textColor}`}>
                                     {client.lastPaymentDate?.toDate ? formatDate(client.lastPaymentDate) : "No payment"}
                                   </div>
                                   {client.lastPaymentAmount && (
-                                    <div className={`text-sm ${mutedTextColor}`}>
+                                    <div className="text-sm text-gray-400">
                                       ₱{client.lastPaymentAmount.toLocaleString()}
                                     </div>
                                   )}
@@ -675,16 +728,16 @@ export default function ClientsPage() {
                   <div className={`p-4 border-t ${borderColor} ${cardBgColor} mt-auto`}>
                     <div className="flex flex-wrap justify-between items-center gap-4">
                       <div className="flex flex-wrap gap-2">
-                        <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
-                          <span className={mutedTextColor}>Total:</span>{" "}
+                        <div className={`${buttonBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                          <span className="text-gray-400">Total:</span>{" "}
                           <span className={`${textColor} font-medium`}>{clientStats.totalClients}</span>
                         </div>
-                        <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
-                          <span className={mutedTextColor}>Connected:</span>{" "}
+                        <div className={`${buttonBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                          <span className="text-gray-400">Connected:</span>{" "}
                           <span className={`${textColor} font-medium`}>{clientStats.connectedClients}</span>
                         </div>
-                        <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
-                          <span className={mutedTextColor}>Overdue:</span>{" "}
+                        <div className={`${buttonBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                          <span className="text-gray-400">Overdue:</span>{" "}
                           <span className={`${textColor} font-medium`}>{clientStats.overdueClients}</span>
                         </div>
                       </div>
@@ -693,55 +746,51 @@ export default function ClientsPage() {
                   </div>
                 </>
               ) : (
-                <div className={`text-center p-8 ${mutedTextColor} min-h-[300px] flex items-center justify-center`}>
+                <div className="text-center p-8 text-gray-400 min-h-[300px] flex items-center justify-center">
                   No active clients found. Add your first client to get started.
                 </div>
               )}
             </div>
           </TabsContent>
 
-          <TabsContent value="archived" className="m-0 p-0 flex-1 flex flex-col">
+          <TabsContent value="archived" className="mt-0 space-y-0 flex-1 flex flex-col">
             <div className={`${cardBgColor} rounded-md border ${borderColor} flex-1 flex flex-col`}>
-              <div className={`p-4 border-b ${borderColor}`}>
-                <h2 className={`text-lg font-medium ${textColor}`}>Archived Clients</h2>
-              </div>
-
               {archivedClients.length > 0 ? (
                 <>
                   <div className="overflow-auto">
                     {/* Desktop view - custom table */}
                     <div>
                       <div
-                        className={`grid grid-cols-12 gap-2 py-2 px-4 ${headerBgColor} ${mutedTextColor} text-sm sticky top-0 z-10`}
+                        className={`grid grid-cols-5 gap-4 py-3 px-4 ${buttonBgColor}/50 ${mutedTextColor} text-sm font-medium sticky top-0 z-10`}
                       >
-                        <div className="col-span-3">Name</div>
-                        <div className="col-span-3">Contact</div>
-                        <div className="col-span-3">Plan</div>
-                        <div className="col-span-2">Last Payment</div>
-                        <div className="col-span-1 text-right">Actions</div>
+                        <div>Name</div>
+                        <div>Contact</div>
+                        <div>Plan</div>
+                        <div>Last Payment</div>
+                        <div className="text-right">Actions</div>
                       </div>
                       <div>
                         {archivedClients.map((client) => (
                           <div
                             key={client.id}
-                            className={`border-b ${rowBorderColor} py-4 px-4 ${hoverBgColor} transition-colors`}
+                            className={`border-b ${borderColor} py-4 px-4 hover:${buttonBgColor}/30 transition-colors`}
                           >
-                            <div className="grid grid-cols-12 gap-2 items-center">
-                              <div className="col-span-3">
+                            <div className="grid grid-cols-5 gap-4 items-center">
+                              <div>
                                 <div className={`font-medium ${textColor}`}>
                                   {client.firstName} {client.lastName}
                                 </div>
                                 <div className={`text-sm ${mutedTextColor}`}>{client.address}</div>
                               </div>
-                              <div className="col-span-3">
+                              <div>
                                 <div className={`text-sm ${textColor}`}>{client.email}</div>
                                 <div className={`text-sm ${mutedTextColor}`}>{client.phone}</div>
                               </div>
-                              <div className="col-span-3">
+                              <div>
                                 <div className={`font-medium ${textColor}`}>{getPlanDisplay(client.plan)}</div>
                               </div>
-                              <div className="col-span-2">
-                                <div className={textColor}>
+                              <div>
+                                <div className={`${textColor}`}>
                                   {client.lastPaymentDate?.toDate ? formatDate(client.lastPaymentDate) : "No payment"}
                                 </div>
                                 {client.lastPaymentAmount && (
@@ -750,12 +799,12 @@ export default function ClientsPage() {
                                   </div>
                                 )}
                               </div>
-                              <div className="col-span-1 text-right">
+                              <div className="text-right">
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleRestoreClient(client)}
-                                  className={`${isDark ? "bg-gray-800 border-gray-700 hover:bg-gray-700" : "bg-gray-100 border-gray-200 hover:bg-gray-200"} ${textColor}`}
+                                  className={`${buttonBgColor} ${buttonBorderColor} ${buttonHoverBgColor} ${textColor}`}
                                 >
                                   Restore
                                 </Button>
@@ -770,15 +819,15 @@ export default function ClientsPage() {
                   {/* Archived clients statistics footer */}
                   <div className={`p-4 border-t ${borderColor} ${cardBgColor} mt-auto`}>
                     <div className="flex justify-between items-center">
-                      <div className={`${statBgColor} px-3 py-1.5 rounded-md text-sm`}>
-                        <span className={mutedTextColor}>Total archived:</span>{" "}
+                      <div className={`${buttonBgColor} px-3 py-1.5 rounded-md text-sm`}>
+                        <span className="text-gray-400">Total archived:</span>{" "}
                         <span className={`${textColor} font-medium`}>{archivedClients.length}</span>
                       </div>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className={`text-center p-8 ${mutedTextColor} min-h-[300px] flex items-center justify-center`}>
+                <div className="text-center p-8 text-gray-400 min-h-[300px] flex items-center justify-center">
                   No archived clients found.
                 </div>
               )}
@@ -786,6 +835,25 @@ export default function ClientsPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Custom Archive Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showArchiveConfirm}
+        onClose={() => {
+          setShowArchiveConfirm(false)
+          setClientToArchive(null)
+        }}
+        onConfirm={confirmArchiveClient}
+        title="Archive Client"
+        message={
+          clientToArchive
+            ? `Are you sure you want to archive ${clientToArchive.firstName} ${clientToArchive.lastName}? This will move the client to the archived section.`
+            : "Are you sure you want to archive this client?"
+        }
+        confirmText="Archive Client"
+        cancelText="Cancel"
+        confirmButtonClass="bg-red-600 hover:bg-red-700 text-white"
+      />
 
       {/* Add Client Modal */}
       {showAddClientModal && (
